@@ -1,2 +1,1 @@
-# SANCHO-XMD-PAIR
-Powerful whatsapp bot 
+Nothin Much
