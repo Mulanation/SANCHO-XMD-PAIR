@@ -1,271 +1,172 @@
-import express from 'express';
-import fs from 'fs';
-import pino from 'pino';
-import { makeWASocket, useMultiFileAuthState, makeCacheableSignalKeyStore, Browsers, jidNormalizedUser, fetchLatestBaileysVersion } from '@whiskeysockets/baileys';
-import { delay } from '@whiskeysockets/baileys';
-import QRCode from 'qrcode';
-import qrcodeTerminal from 'qrcode-terminal';
-
-const router = express.Router();
-
-// Function to remove files or directories
+const { makeid } = require('./gen-id');
+const express = require('express');
+const QRCode = require('qrcode');
+const fs = require('fs');
+let router = express.Router();
+const pino = require("pino");
+const {
+    default: makeWASocket,
+    useMultiFileAuthState,
+    delay,
+    makeCacheableSignalKeyStore,
+    Browsers,
+    jidNormalizedUser
+} = require("@whiskeysockets/baileys");
+const { upload } = require('./mega');
 function removeFile(FilePath) {
-    try {
-        if (!fs.existsSync(FilePath)) return false;
-        fs.rmSync(FilePath, { recursive: true, force: true });
-        return true;
-    } catch (e) {
-        console.error('Error removing file:', e);
-        return false;
-    }
+    if (!fs.existsSync(FilePath)) return false;
+    fs.rmSync(FilePath, { recursive: true, force: true });
 }
-
 router.get('/', async (req, res) => {
-    // Generate unique session for each request to avoid conflicts
-    const sessionId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
-    const dirs = `./qr_sessions/session_${sessionId}`;
-
-    // Ensure qr_sessions directory exists
-    if (!fs.existsSync('./qr_sessions')) {
-        fs.mkdirSync('./qr_sessions', { recursive: true });
-    }
-
-    async function initiateSession() {
-        // ✅ PERMANENT FIX: Create the session folder before anything
-        if (!fs.existsSync(dirs)) fs.mkdirSync(dirs, { recursive: true });
-
-        const { state, saveCreds } = await useMultiFileAuthState(dirs);
-
+    const id = makeid();
+ //   let num = req.query.number;
+    async function SANCHO-XMD_PAIR_CODE() {
+        const {
+            state,
+            saveCreds
+        } = await useMultiFileAuthState('./temp/' + id);
         try {
-            const { version, isLatest } = await fetchLatestBaileysVersion();
+var items = ["Safari"];
+function selectRandomItem(array) {
+  var randomIndex = Math.floor(Math.random() * array.length);
+  return array[randomIndex];
+}
+var randomItem = selectRandomItem(items);
             
-            let qrGenerated = false;
-            let responseSent = false;
-
-            // QR Code handling logic
-            const handleQRCode = async (qr) => {
-                if (qrGenerated || responseSent) return;
-                
-                qrGenerated = true;
-                console.log('🟢 QR Code Generated! Scan it with your WhatsApp app.');
-                console.log('📋 Instructions:');
-                console.log('1. Open WhatsApp on your phone');
-                console.log('2. Go to Settings > Linked Devices');
-                console.log('3. Tap "Link a Device"');
-                console.log('4. Scan the QR code below');
-                // Display QR in terminal
-                //qrcodeTerminal.generate(qr, { small: true });
-                try {
-                    // Generate QR code as data URL
-                    const qrDataURL = await QRCode.toDataURL(qr, {
-                        errorCorrectionLevel: 'M',
-                        type: 'image/png',
-                        quality: 0.92,
-                        margin: 1,
-                        color: {
-                            dark: '#000000',
-                            light: '#FFFFFF'
-                        }
-                    });
-
-                    if (!responseSent) {
-                        responseSent = true;
-                        console.log('QR Code generated successfully');
-                        await res.send({ 
-                            qr: qrDataURL, 
-                            message: 'QR Code Generated! Scan it with your WhatsApp app.',
-                            instructions: [
-                                '1. Open WhatsApp on your phone',
-                                '2. Go to Settings > Linked Devices',
-                                '3. Tap "Link a Device"',
-                                '4. Scan the QR code above'
-                            ]
-                        });
-                    }
-                } catch (qrError) {
-                    console.error('Error generating QR code:', qrError);
-                    if (!responseSent) {
-                        responseSent = true;
-                        res.status(500).send({ code: 'Failed to generate QR code' });
-                    }
-                }
-            };
-
-            // Improved Baileys socket configuration
-            const socketConfig = {
-                version,
-                logger: pino({ level: 'silent' }),
-                browser: Browsers.windows('Chrome'), // Using Browsers enum for better compatibility
-                auth: {
-                    creds: state.creds,
-                    keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }).child({ level: "fatal" })),
-                },
-                markOnlineOnConnect: false, // Disable to reduce connection issues
-                generateHighQualityLinkPreview: false, // Disable to reduce connection issues
-                defaultQueryTimeoutMs: 60000, // Increase timeout
-                connectTimeoutMs: 60000, // Increase connection timeout
-                keepAliveIntervalMs: 30000, // Keep connection alive
-                retryRequestDelayMs: 250, // Retry delay
-                maxRetries: 5, // Maximum retries
-            };
-
-            // Create socket and bind events
-            let sock = makeWASocket(socketConfig);
-            let reconnectAttempts = 0;
-            const maxReconnectAttempts = 3;
-
-            // Connection event handler function
-            const handleConnectionUpdate = async (update) => {
-                const { connection, lastDisconnect, qr } = update;
-                console.log(`🔄 Connection update: ${connection || 'undefined'}`);
-
-                if (qr && !qrGenerated) {
-                    await handleQRCode(qr);
-                }
-
-                if (connection === 'open') {
-                    console.log('✅ Connected successfully!');
-                    console.log('💾 Session saved to:', dirs);
-                    reconnectAttempts = 0; // Reset reconnect attempts on successful connection
-                    
-                    // Send session file to user 
-                    try {
-                        
-                        
-                        // Read the session file
-                        const sessionSancho = fs.readFileSync(dirs + '/creds.json');
-                        
-                        // Get the user's JID from the session
-                        const userJid = Object.keys(sock.authState.creds.me || {}).length > 0 
-                            ? jidNormalizedUser(sock.authState.creds.me.id) 
-                            : null;
-                            
-                        if (userJid) {
-                            // Send session file to user
-                            await sock.sendMessage(userJid, {
-                                document: sessionSancho,
-                                mimetype: 'application/json',
-                                fileName: 'creds.json'
-                            });
-                            console.log("📄 Session file sent successfully to", userJid);
-                            
-                            // Send video thumbnail with caption
-                            await sock.sendMessage(userJid, {
-                                image: { url: 'https://img.youtube.com' },
-                                caption: ` *SANCHO-XMD V1.0 Full Setup Guide!*\n\n🚀 Bug Fixes + New Commands + Fast AI Chat\n📺 Watch Now:`
-                            });
-                            console.log("🎬 Video guide sent successfully");
-                            
-                            // Send warning message
-                            await sock.sendMessage(userJid, {
-                                text: `⚠️Do not share this file with anybody⚠️\n 
-┌┤✑  Thanks for using  SANCHO-XMD
-│└────────────┈ ⳹        
-│©2025 Sancho Tech
-└─────────────────┈ ⳹\n\n`
-                            });
-                        } else {
-                            console.log("❌ Could not determine user JID to send session file");
-                        }
-                    } catch (error) {
-                        console.error("Error sending session file:", error);
-                    }
-                    
-                    // Clean up session after successful connection and sending files
-                    setTimeout(() => {
-                        console.log('🧹 Cleaning up session...');
-                        const deleted = removeFile(dirs);
-                        if (deleted) {
-                            console.log('✅ Session cleaned up successfully');
-                        } else {
-                            console.log('❌ Failed to clean up session folder');
-                        }
-                    }, 15000); // Wait 15 seconds before cleanup to ensure messages are sent
-                }
-
-                if (connection === 'close') {
-                    console.log('❌ Connection closed');
-                    if (lastDisconnect?.error) {
-                        console.log('❗ Last Disconnect Error:', lastDisconnect.error);
-                    }
-                    
-                    const statusCode = lastDisconnect?.error?.output?.statusCode;
-                    
-                    // Handle specific error codes
-                    if (statusCode === 401) {
-                        console.log('🔐 Logged out - need new QR code');
-                        removeFile(dirs);
-                    } else if (statusCode === 515 || statusCode === 503) {
-                        console.log(`🔄 Stream error (${statusCode}) - attempting to reconnect...`);
-                        reconnectAttempts++;
-                        
-                        if (reconnectAttempts <= maxReconnectAttempts) {
-                            console.log(`🔄 Reconnect attempt ${reconnectAttempts}/${maxReconnectAttempts}`);
-                            // Wait a bit before reconnecting
-                            setTimeout(() => {
-                                try {
-                                    sock = makeWASocket(socketConfig);
-                                    sock.ev.on('connection.update', handleConnectionUpdate);
-                                    sock.ev.on('creds.update', saveCreds);
-                                } catch (err) {
-                                    console.error('Failed to reconnect:', err);
-                                }
-                            }, 2000);
-                        } else {
-                            console.log('❌ Max reconnect attempts reached');
-                            if (!responseSent) {
-                                responseSent = true;
-                                res.status(503).send({ code: 'Connection failed after multiple attempts' });
-                            }
-                        }
-                    } else {
-                        console.log('🔄 Connection lost - attempting to reconnect...');
-                        // Let it reconnect automatically
-                    }
-                }
-            };
-
-            // Bind the event handler
-            sock.ev.on('connection.update', handleConnectionUpdate);
-
+            let sock = makeWASocket({
+                	
+				auth: state,
+				printQRInTerminal: false,
+				logger: pino({
+					level: "silent"
+				}),
+				browser: Browsers.macOS("Desktop"),
+			});
+            
             sock.ev.on('creds.update', saveCreds);
+            sock.ev.on("connection.update", async (s) => {
+                const {
+                    connection,
+                    lastDisconnect,
+                    qr
+                } = s;
+              if (qr) await res.end(await QRCode.toBuffer(qr));
+                if (connection == "open") {
+                    await delay(5000);
+                    let data = fs.readFileSync(__dirname + `/temp/${id}/creds.json`);
+                    let rf = __dirname + `/temp/${id}/creds.json`;
+                    function generateRandomText() {
+                        const prefix = "3EB";
+                        const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+                        let randomText = prefix;
+                        for (let i = prefix.length; i < 22; i++) {
+                            const randomIndex = Math.floor(Math.random() * characters.length);
+                            randomText += characters.charAt(randomIndex);
+                        }
+                        return randomText;
+                    }
+                    const randomText = generateRandomText();
+                    try {
+                        const { upload } = require('./mega');
+                        const mega_url = await upload(fs.createReadStream(rf), `${sock.user.id}.json`);
+                        const string_session = mega_url.replace('https://mega.nz/file/', '');
+                        let md = "sancho~" + string_session;
+                        let code = await sock.sendMessage(sock.user.id, { text: md });
+                        let desc = `*╭━━━━━━━━━━━━━━━━━━━━━╮
+┃   SANCHO-XMD USER   ┃
+╰━━━━━━━━━━━━━━━━━━━━━╯
 
-            // Set a timeout to clean up if no QR is generated
-            setTimeout(() => {
-                if (!responseSent) {
-                    responseSent = true;
-                    res.status(408).send({ code: 'QR generation timeout' });
-                    removeFile(dirs);
+🙋 Hello there, SANCHO-XMD User!  
+
+> ⚠️ *Do not share your session ID with your GF!* 😂  
+
+✅ **Thanks for using SANCHO-XMD!** 🚩  
+
+━━━━━━━━━━━━━━━━━━━━━━━  
+
+📢 **Join our WhatsApp Channel:**  
+🔗  https://whatsapp.com/channel/0029VbARanh0LKZI3sZO0g20
+
+⭐ **Don't forget to fork the repo:**  
+🔗 https://https://github.com/sanchotech/SANCHO-XMD/fork
+
+━━━━━━━━━━━━━━━━━━━━━━━  
+
+> *© Powered by SANCHO TECH 💟*`;
+                        await sock.sendMessage(sock.user.id, {
+text: desc,
+contextInfo: {
+externalAdReply: {
+title: " 𝖇𝖔𝖙 𝖈𝖔𝖓𝖓𝖊𝖈𝖙𝖊𝖉",
+thumbnailUrl: "https://i.postimg.cc/3RrYq2xP/28ed8a29-7bae-4747-b11c-1fd04d0ee9bf.jpg",
+sourceUrl: "https://whatsapp.com/channel/0029VbARanh0LKZI3sZO0g20",
+mediaType: 1,
+renderLargerThumbnail: true
+}  
+}
+},
+{quoted:code })
+                    } catch (e) {
+                            let ddd = sock.sendMessage(sock.user.id, { text: e });
+                            let desc = `*╭━━━━━━━━━━━━━━━━━━━━━╮
+┃  SANCHO-XMD USER   ┃
+╰━━━━━━━━━━━━━━━━━━━━━╯
+
+🙋 Hello there SANCHO-XMD User!  
+
+> ⚠️ *Do not share your session ID with your GF!* 😂  
+
+✅ **Thanks for using SANCHO-XMD!** 💜  
+
+━━━━━━━━━━━━━━━━━━━━━━━  
+
+📢 **Join our WhatsApp Channel:**  
+🔗 https://whatsapp.com/channel/0029VbARanh0LKZI3sZO0g20  
+
+⭐ **Don't forget to fork the repo:**  
+🔗 https://github.com/sanchotech/SANCHO-XMD/fork  
+
+━━━━━━━━━━━━━━━━━━━━━━━  
+
+> *© Powered by SANCHO TECH 💟*`;
+                            await sock.sendMessage(sock.user.id, {
+text: desc,
+contextInfo: {
+externalAdReply: {
+title: " 𝖒𝖉 𝖈𝖔𝖓𝖓𝖊𝖈𝖙𝖊𝖉 ✅  ",
+thumbnailUrl: "https://i.postimg.cc/3RrYq2xP/28ed8a29-7bae-4747-b11c-1fd04d0ee9bf.jpg",
+sourceUrl: "https://whatsapp.com/channel/0029VbARanh0LKZI3sZO0g20",
+mediaType: 2,
+renderLargerThumbnail: true,
+showAdAttribution: true
+}  
+}
+},
+{quoted:ddd })
+                    }
+                    await delay(10);
+                    await sock.ws.close();
+                    await removeFile('./temp/' + id);
+                    console.log(`👤 ${sock.user.id} 𝗖𝗼𝗻𝗻𝗲𝗰𝘁𝗲𝗱 ✅ 𝗥𝗲𝘀𝘁𝗮𝗿𝘁𝗶𝗻𝗴 𝗽𝗿𝗼𝗰𝗲𝘀𝘀...`);
+                    await delay(10);
+                    process.exit();
+                } else if (connection === "close" && lastDisconnect && lastDisconnect.error && lastDisconnect.error.output.statusCode != 401) {
+                    await delay(10);
+                    SANCHO-XMD_PAIR_CODE();
                 }
-            }, 30000); // 30 second timeout
-
+            });
         } catch (err) {
-            console.error('Error initializing session:', err);
+            console.log("service restated");
+            await removeFile('./temp/' + id);
             if (!res.headersSent) {
-                res.status(503).send({ code: 'Service Unavailable' });
+                await res.send({ code: "❗ Service Unavailable" });
             }
-            removeFile(dirs);
         }
     }
-
-    await initiateSession();
+    await SANCHO-XMD_PAIR_CODE();
 });
-
-// Global uncaught exception handler
-process.on('uncaughtException', (err) => {
-    let e = String(err);
-    if (e.includes("conflict")) return;
-    if (e.includes("not-authorized")) return;
-    if (e.includes("Socket connection timeout")) return;
-    if (e.includes("rate-overlimit")) return;
-    if (e.includes("Connection Closed")) return;
-    if (e.includes("Timed Out")) return;
-    if (e.includes("Value not found")) return;
-    if (e.includes("Stream Errored")) return;
-    if (e.includes("Stream Errored (restart required)")) return;
-    if (e.includes("statusCode: 515")) return;
-    if (e.includes("statusCode: 503")) return;
-    console.log('Caught exception: ', err);
-});
-
-export default router;
+setInterval(() => {
+    console.log("☘️ 𝗥𝗲𝘀𝘁𝗮𝗿𝘁𝗶𝗻𝗴 𝗽𝗿𝗼𝗰𝗲𝘀𝘀...");
+    process.exit();
+}, 180000); //30min
+module.exports = router;

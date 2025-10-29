@@ -1,27 +1,28 @@
 {
-  "name": "SANCHO-XMD",
-  "version": "1.0.0",
-  "description"SANCHO-XMD - WhatsApp Pair Code Generator",
-  "main": "index.js",
-  "type": "module",
-  "engines": {
-    "node": ">=20.0.0"
-  },
-  "scripts": {
-    "start": "node index.js",
-    "build": "echo 'No build step required'"
-  },
-  "author": "SANCHO TECH",
-  "license": "ISC",
+  "description": "SANCHO-XMD",
+  "main": "./index.js",
+  "type": "commonjs",
+  "engines" : { 
+    "node" : ">=20.0.0"
+    },
+    "scripts": {
+      "start": "pm2 start index.js --deep-monitoring --attach --name SANCHO-XMD",
+      "stop": "pm2 stop SANCHO-XMD",
+     "restart": "pm2 restart SANCHO-XMD"
+    },
+  "author": "SANCHO-TECH",
+  "license": "GPL-3.0 license",
   "dependencies": {
     "@whiskeysockets/baileys": "^6.7.18",
-    "awesome-phonenumber": "7.2.0",
-    "body-parser": "^1.20.3",
-    "express": "^4.21.2",
+    "qrcode": "^1.5.3",
+    "awesome-phonenumber": "^2.64.0",
+    "megajs": "^1.1.0",
+    "pino": "^8.1.0",
     "path": "^0.12.7",
-    "phone": "3.1.55",
-    "pino": "9.5.0",
-    "qrcode": "^1.5.4",
-    "qrcode-terminal": "^0.12.0"
-  }
+    "phone" : "3.1.30",
+    "body-parser": "^1.20.1",
+    "express": "^4.18.1",
+    "path": "^0.12.7",
+    "pm2": "^5.2.0"
+   }
 }

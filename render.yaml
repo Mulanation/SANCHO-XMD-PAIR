@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: SANCHO-XMD-PAIR
+    env: docker
+    plan: free
+    branch: main
+    repo: https://github.com/sanchotech/SANCHO-XMD-PAIR
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
